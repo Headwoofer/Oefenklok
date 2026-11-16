@@ -23,6 +23,7 @@
 <div class="day evening" data-phase="3"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 34h38M11 39h26M14 34a10 10 0 0 1 20 0M24 8v10M8 21l6 5M40 21l-6 5M5 28h6M43 28h-6"/><path d="M31 6h7M34.5 2.5v7"/></svg><b>Avond</b><small>18–24</small></div>
 </div>
 <section class="card clockcard">
+<div id="digitalPrompt" class="hidden" aria-label="Digitale tijd voor uitspraak-oefening"><div class="label">Lees deze digitale tijd</div><div id="digitalPromptTime" style="font-size:clamp(42px,7vw,70px);font-weight:800;font-variant-numeric:tabular-nums;padding:62px 0 58px;color:#174e8c">19:35</div><div class="smallnote">Maak de uitspraak met de rolmenu’s rechts.</div></div>
 <div class="clocktop"><span class="label">Analoge klok</span><span id="clockInstruction" class="muted">Sleep de wijzers</span></div>
 <svg id="dial" class="dial" viewBox="0 0 320 320" role="img" aria-label="Analoge klok">
 <circle cx="160" cy="160" r="152" fill="#fff" stroke="#b9cadb" stroke-width="2"/><g id="ticks"></g><g id="numbers"></g>
@@ -45,6 +46,7 @@
 <section id="setPanel" class="card hidden"><div class="label">Opdracht · zet de klok</div><div id="setTarget" class="tasktitle">19:35</div><div class="smallnote">Versleep de wijzers en kies AM of PM.</div><div class="mt grid2"><button id="setDigitalKind" class="active">Digitale tijd</button><button id="setSpokenKind">Uitgesproken tijd</button></div><div class="actions"><button id="setCheck" class="primary">✓ Controleer</button><button id="setNew">Nieuwe opdracht</button></div><div id="setFeedback" class="feedback" aria-live="polite">Zet de wijzers op de gevraagde tijd.</div></section>
 <section id="digitalPanel" class="card hidden"><div class="label">Opdracht · lees de analoge klok</div><div class="tasktitle">Vul de digitale tijd in</div><div class="smallnote">Lees de wijzers en noteer de tijd in 24-uursnotatie.</div><div class="answerline mt"><label>Uren<input id="hourInput" type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="uu"></label><span class="colon">:</span><label>Minuten<input id="minuteInput" type="text" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="mm"></label></div><div class="actions"><button id="digitalCheck" class="primary">✓ Controleer</button><button id="digitalNew">Nieuwe tijd</button></div><div id="digitalFeedback" class="feedback" aria-live="polite">Kijk goed naar beide wijzers.</div></section>
 <section id="spokenPanel" class="card hidden"><div class="label">Opdracht · Nederlandse tijdsaanduiding</div><div class="tasktitle">Hoe zeg je deze tijd?</div><div class="smallnote">Maak de uitgesproken tijd met de rolmenu’s. Bijvoorbeeld: vijf · over half · acht · 's avonds.</div>
+<div class="grid2 mt"><button id="spokenAnalog" class="active" type="button">Analoge klok</button><button id="spokenDigital" type="button">Digitale tijd</button></div>
 <div class="speechfields mt">
 <label id="amountLabel">Hoeveel<select id="amountSelect"><option value="">Kies…</option></select></label>
 <label>Welke aanduiding<select id="relationSelect"><option value="">Kies…</option><option value="over">over</option><option value="voor half">voor half</option><option value="half">half</option><option value="over half">over half</option><option value="voor">voor</option><option value="uur">uur</option></select></label>
@@ -64,7 +66,7 @@
 const $=id=>document.getElementById(id),wrap=x=>(x%1440+1440)%1440,pad=n=>String(n).padStart(2,'0');
 const hours=['twaalf','een','twee','drie','vier','vijf','zes','zeven','acht','negen','tien','elf'];
 const numbers=['','een','twee','drie','vier','vijf','zes','zeven','acht','negen','tien','elf','twaalf','dertien','veertien'];
-let mode='free',current=19*60+35,target=current,setKind='digital',drag=null,lastPointer=null,dragStart=null,correct=0,attempts=0,level=3,lastRandom=null;
+let mode='free',current=19*60+35,target=current,setKind='digital',spokenSource='analog',drag=null,lastPointer=null,dragStart=null,correct=0,attempts=0,level=3,lastRandom=null;
 const phase=t=>{const h=Math.floor(t/60);return h<6?0:h<12?1:h<18?2:3};
 function segments(t){const h=Math.floor(t/60),m=t%60;let amount='',relation='',hour=h%12;
  if(m===0)relation='uur';
@@ -89,6 +91,7 @@ function draw(){const h=Math.floor(current/60),m=current%60;hand('hourhand',(h%1
  $('am').classList.toggle('active',h<12);$('pm').classList.toggle('active',h>=12);
  $('digitalOutput').textContent=$('showDigital').checked?pad(h)+':'+pad(m):'••:••';$('shortOutput').textContent=$('showShort').checked?pad(h%12||12)+':'+pad(m):'••:••';$('speechOutput').textContent=$('showSpeech').checked?say(current):'Welke tijd is het?';
  $('setTarget').textContent=setKind==='digital'?pad(Math.floor(target/60))+':'+pad(target%60):say(target);
+ $('digitalPromptTime').textContent=pad(h)+':'+pad(m);
 }
 function setTime(t){current=wrap(t);draw()}
 function randomTime(){
@@ -116,14 +119,27 @@ function resetAnswer(){answered=false}
 function award(ok){if(!answered){attempts++;if(ok)correct++;answered=true;updateScore()}}
 function newExercise(){target=randomTime();if(mode==='set')current=(Math.floor(target/720)===0?720:0);else current=target;
  resetAnswer();$('hourInput').value='';$('minuteInput').value='';['amountSelect','relationSelect','spokenHour','phaseSelect'].forEach(id=>$(id).value='');updateAmount();preview();draw();
- if(mode==='set')feedback('setFeedback','Zet de wijzers op de gevraagde tijd.');if(mode==='digital')feedback('digitalFeedback','Lees de analoge tijd en vul uren en minuten in.');if(mode==='spoken')feedback('spokenFeedback','Maak de tijd met de rolmenu’s.');
+ if(mode==='set')feedback('setFeedback','Zet de wijzers op de gevraagde tijd.');if(mode==='digital')feedback('digitalFeedback','Lees de analoge tijd en vul uren en minuten in.');if(mode==='spoken')feedback('spokenFeedback',spokenSource==='digital'?'Lees de digitale tijd en maak de uitspraak met de rolmenu’s.':'Lees de klok en maak de uitspraak met de rolmenu’s.');
 }
 function switchMode(next){mode=next;for(const m of ['free','set','digital','spoken']){$('tab-'+m).classList.toggle('active',m===mode);$(m==='free'?'freePanel':m+'Panel').classList.toggle('hidden',m!==mode)}
  $('halfPanel').classList.toggle('hidden',mode==='digital'||mode==='spoken');$('moveBtns').classList.toggle('hidden',mode==='digital'||mode==='spoken');
- $('clockInstruction').textContent=mode==='set'?'Sleep de wijzers':mode==='free'?'Sleep de wijzers':'Lees de wijzers af';$('dial').style.cursor=(mode==='free'||mode==='set')?'crosshair':'default';
- $('info').textContent={free:'Sleep de wijzers, kies AM of PM en zie de digitale en uitgesproken tijd veranderen.',set:'Gebruik de wijzers en AM/PM. Een correcte urenwijzer staat bij halve uren tussen twee cijfers.',digital:'De wijzers staan vast. Het gekleurde dagdeel helpt bij de 24-uursnotatie.',spoken:'De wijzers staan vast. Kies hoeveel, over/voor/half, het uur en het dagdeel.'}[mode];
- if(mode!=='free')newExercise();else draw();
+ $('clockInstruction').textContent=mode==='set'?'Sleep de wijzers':mode==='free'?'Sleep de wijzers':mode==='spoken'&&spokenSource==='digital'?'Lees de digitale tijd':'Lees de wijzers af';$('dial').style.cursor=(mode==='free'||mode==='set')?'crosshair':'default';
+ $('info').textContent={free:'Sleep de wijzers, kies AM of PM en zie de digitale en uitgesproken tijd veranderen.',set:'Gebruik de wijzers en AM/PM. Een correcte urenwijzer staat bij halve uren tussen twee cijfers.',digital:'De wijzers staan vast. Het gekleurde dagdeel helpt bij de 24-uursnotatie.',spoken:'Kies analoge klok of digitale tijd, en stel daarna de Nederlandse uitspraak samen.'}[mode];
+ updateSpokenSource();if(mode!=='free')newExercise();else draw();
 }
+function updateSpokenSource(){
+ const digital=mode==='spoken'&&spokenSource==='digital';
+ $('spokenAnalog').classList.toggle('active',spokenSource==='analog');
+ $('spokenDigital').classList.toggle('active',spokenSource==='digital');
+ $('digitalPrompt').classList.toggle('hidden',!digital);
+ $('dial').classList.toggle('hidden',digital);
+ document.querySelector('.legend').classList.toggle('hidden',digital);
+ document.querySelector('.days').classList.toggle('hidden',digital);
+ $('clockInstruction').textContent=digital?'Lees de digitale tijd':mode==='set'?'Sleep de wijzers':mode==='free'?'Sleep de wijzers':'Lees de wijzers af';
+ $('info').textContent=digital?'Lees de 24-uursnotatie en maak de Nederlandse uitspraak met de rolmenu’s.':mode==='spoken'?'Lees de analoge klok en kies hoeveel, over/voor/half, het uur en het dagdeel.':$('info').textContent;
+}
+$('spokenAnalog').onclick=()=>{spokenSource='analog';updateSpokenSource();newExercise()};
+$('spokenDigital').onclick=()=>{spokenSource='digital';updateSpokenSource();newExercise()};
 ['free','set','digital','spoken'].forEach(m=>$('tab-'+m).addEventListener('click',()=>switchMode(m)));
 $('am').onclick=()=>setTime(current%720);$('pm').onclick=()=>setTime(current%720+720);
 $('hm').onclick=()=>setTime(current-60);$('hp').onclick=()=>setTime(current+60);
@@ -148,7 +164,7 @@ for(const id of ['amountSelect','relationSelect','spokenHour','phaseSelect'])$(i
 $('spokenCheck').onclick=()=>{const s=segments(current),a=$('amountSelect').value,r=$('relationSelect').value,h=$('spokenHour').value,p=$('phaseSelect').value;
  if(!r||h===''||p===''||(!['half','uur'].includes(r)&&!a)){feedback('spokenFeedback','Kies eerst alle onderdelen van de tijd.');return}
  const correctAmount=a===s.amount,correctRelation=r===s.relation,correctHour=h===s.hour,correctPhase=p===s.phase,ok=correctAmount&&correctRelation&&correctHour&&correctPhase;award(ok);
- let msg;if(ok)msg='✓ Goed! '+say(current)+'.';else if(!correctRelation)msg='Kijk naar de minutenwijzer: hoort hier over, voor, half of uur?';else if(!correctAmount)msg='De aanduiding klopt. Controleer het aantal minuten of het kwartier.';else if(!correctHour)msg='De minuten kloppen. Welk uur noem je in het Nederlands?';else msg='De tijd klopt. Kijk nog naar het dagdeel.';feedback('spokenFeedback',msg,ok)};
+ let msg;if(ok)msg='✓ Goed! '+say(current)+'.';else if(!correctRelation)msg='Kijk naar de minuten: hoort hier over, voor, half of uur?';else if(!correctAmount)msg='De aanduiding klopt. Controleer het aantal minuten of het kwartier.';else if(!correctHour)msg='De minuten kloppen. Welk uur noem je in het Nederlands?';else msg='De tijd klopt. Kijk nog naar het dagdeel.';feedback('spokenFeedback',msg,ok)};
 // Wijzers draaien rond exact dezelfde as. Absolute startpositie voorkomt sprongen bij aanraken.
 const dial=$('dial');function pos(e){const M=dial.getScreenCTM();if(!M)return null;const pt=dial.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const p=pt.matrixTransform(M.inverse());return{x:p.x,y:p.y,r:Math.hypot(p.x-160,p.y-160),angle:(Math.atan2(p.x-160,160-p.y)*180/Math.PI+360)%360}}
 const shortest=a=>((a+540)%360)-180;
